@@ -1,0 +1,279 @@
+﻿@using Library.Models.DTOs.Cnr
+
+@{
+    ViewData["Title"] = "Consulta CNR por NIT";
+}
+
+<main class="d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
+            <div id="titles" class="col-12 col-md-8 col-lg-7 animate__animated animate__fadeIn animate__faster text-center mb-3">
+            <h1 class="fw-semibold text-dark h3">
+                <i class="fas fa-search text-primary pe-2"></i> Consulta por número de NIT
+            </h1>
+            <div class="text-muted text-center">
+                <small>Ingrese el número de NIT que deseas consultar.</small>
+            </div>
+        </div>
+    <div class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp animate__faster col-12 col-md-8 col-lg-7 mb-4">
+        <div class="p-3" id="formNitConsulta">
+            @(Html.DevExtreme().Form()
+                .ID("nitForm")
+                .FormData(new { nit = "" })
+                .ColCount(10)
+                .Items(items =>
+                {
+                    items.AddSimple()
+                    .ColSpan(6)
+                    .DataField("nit")
+                    .Editor(editor => editor.TextBox()
+                    .ShowClearButton(true)
+                    .Placeholder("Ingrese NIT"))
+                    .Label(l => l.Text("NIT"));
+
+                            items.AddButton()
+                            .ColSpan(3)
+                            .HorizontalAlignment(HorizontalAlignment.Right)
+                            .ButtonOptions(b => b
+                            .Text("Consultar")
+                            .Type(ButtonType.Default)
+                            .Icon("search")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("consultarNit"));
+
+                            items.AddButton()
+                            .ColSpan(1)
+                            .HorizontalAlignment(HorizontalAlignment.Left)
+                            .ButtonOptions(b => b
+                            .Icon("fas fa-arrow-rotate-left")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("limpiarNitResultado"));
+                })
+                )
+        </div>
+
+    </div>
+
+    <div class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp animate__fast col-12 col-md-8 col-lg-7 mb-4  p-4" id="tabsResultado" style="display:none;">
+        <div class="bg-light rounded-4 p-2  mb-3">
+            <ul class="nav nav-tabs border-0 mx-auto d-flex w-100 gap-2" id="nitTabs" role="tablist">
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link active w-100" id="tab-general-tab" data-bs-toggle="tab" data-bs-target="#tab-general" type="button" role="tab">Información General</button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100" id="tab-empresa-tab" data-bs-toggle="tab" data-bs-target="#tab-empresa" type="button" role="tab">Datos de Empresa</button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100" id="tab-balances-tab" data-bs-toggle="tab" data-bs-target="#tab-balances" type="button" role="tab">Balances</button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100" id="tab-representantes-tab" data-bs-toggle="tab" data-bs-target="#tab-representantes" type="button" role="tab">Representantes</button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100" id="tab-apoderados-tab" data-bs-toggle="tab" data-bs-target="#tab-apoderados" type="button" role="tab">Apoderados</button>
+                </li>
+            </ul>
+
+        </div>
+  
+
+        <div class="tab-content rounded-2">
+            <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+                <div class="animate__animated animate__fadeIn" id="formPersonaJuridica"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-empresa" role="tabpanel">
+                <div class="animate__animated animate__fadeIn" id="formDatosEmpresa"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-balances" role="tabpanel">
+                <div class="animate__animated animate__fadeIn" id="gridBalances"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-representantes" role="tabpanel">
+                <div class="animate__animated animate__fadeIn" id="gridRepresentantes"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-apoderados" role="tabpanel">
+                <div class="animate__animated animate__fadeIn" id="gridApoderados"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+
+    <script>
+        function consultarNit() {
+            const form = $("#nitForm").dxForm("instance");
+            const nit = form.option("formData").nit;
+            //limpiarNitResultado();
+        loadingPanel.show();
+            fetch("/Cnr/ConsultarPorNit", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nit })
+            })
+            .then(res => {
+                if (!res.ok) return handleHttpError(res);
+                return res.json();
+            })
+            .then(result => {
+                if (result?.success) {
+                document.getElementById("titles").classList.remove("text-center","mb-3");
+                document.getElementById("titles").classList.add("titles_small","text-start","mb-2","ps-3");
+                    DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                    mostrarNitResultado(result.data);
+                } else {
+                    DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+                }
+            })
+            .catch(err => console.error("Error:", err.message)).
+            finally(() => {
+                loadingPanel.hide();
+            });
+        }
+
+        function mostrarNitResultado(data) {
+            const dx = (id, val) => $("#" + id).dxTextBox("instance").option("value", val || "");
+            $("#formPersonaJuridica").dxForm({
+                formData: data,
+                readOnly: true,
+                labelLocation: "top",
+                colCount: 2,
+                items: [
+                    "denominacion", "abreviatura", "nit", "codigoPersona",
+                    "estadoPersona", "fechaInscripcion", "numeroInscripcion",
+                    "libroInscripcion", "capitalInscrito"
+                ]
+            });
+
+            $("#formDatosEmpresa").dxForm({
+                formData: data.datosEmpresa || {},
+                readOnly: true,
+                labelLocation: "top",
+                colCount: 2,
+                items: [
+                    "matricula", { dataField: "direccionMatriz", colSpan: 2 },
+                    "departamento", "municipio", "distrito",
+                    "naturaleza", { dataField: "actividadEconomica", colSpan: 2 },
+                    "estadoRenovacionMatricula"
+                ]
+            });
+        const gridConfig = {
+            showBorders: true,
+            columnAutoWidth: true,
+            wordWrapEnabled: true,
+            rowAlternationEnabled: true,
+            columnHidingEnabled: true,
+            searchPanel: {
+                visible: true,
+                width: 250,
+                placeholder: "Buscar..."
+            },
+            paging: {
+                pageSize: 10
+            },
+            pager: {
+                showPageSizeSelector: true,
+                allowedPageSizes: [10, 20, 50],
+                showInfo: true
+            }
+        };
+        $("#gridBalances").dxDataGrid(Object.assign({}, gridConfig,{
+                dataSource: data.balancesDepositados || [],
+                showBorders: true,
+                columns: [
+                    { dataField: "anio", caption: "Año" },
+                    { dataField: "tipoBalance", caption: "Tipo" },
+                    { dataField: "fechaDeposito", caption: "Fecha Depósito" },
+                    { dataField: "numeroDeposito", caption: "N° Depósito" },
+                    { dataField: "activo", caption: "Activo" }
+                ]
+            }));
+
+        $("#gridRepresentantes").dxDataGrid(Object.assign({}, gridConfig,{
+                dataSource: data.representantesLegales || [],
+                showBorders: true,
+                columns: [
+                    { dataField: "nombreCompleto", caption: "Nombre" },
+                    { dataField: "numeroInscripcion" },
+                    { dataField: "libroInscripcion" },
+                    { dataField: "fechaInscripcion" },
+                    { dataField: "paisNacionalidad" },
+                    { dataField: "paisDomicilio" },
+                    { dataField: "estado" },
+                    {
+                        dataField: "documentos",
+                        caption: "Documentos",
+                        cellTemplate: function (container, options) {
+                            if (Array.isArray(options.value)) {
+                                let html = "<ul>";
+                                options.value.forEach(doc => {
+                                    html += `<li>${doc.tipoDocumento}: ${doc.numeroDocumento} (${doc.paisEmision})</li>`;
+                                });
+                                html += "</ul>";
+                                container.html(html);
+                            }
+                        }
+                    }
+                ]
+            }));
+
+        $("#gridApoderados").dxDataGrid(Object.assign({}, gridConfig,{
+                dataSource: data.apoderados || [],
+                showBorders: true,
+                columnsAutoWidth: true,
+                columns: [
+                    { dataField: "nombreCompleto", caption: "Nombre" },
+                    {
+                        dataField: "documentos",
+                        caption: "Documentos",
+                        cellTemplate: function (container, options) {
+                            if (Array.isArray(options.value)) {
+                                let html = "<ul>";
+                                options.value.forEach(doc => {
+                                    html += `<li>${doc.tipoDocumento}: ${doc.numeroDocumento} (${doc.paisEmision})</li>`;
+                                });
+                                html += "</ul>";
+                                container.html(html);
+                            }
+                        }
+                    }
+                ]
+            }));
+        document.getElementById("tabsResultado").style.display = "block";
+        }
+
+        // function limpiarNitResultado() {
+        //    const dx = (id) => $("#" + id).dxTextBox("instance").option("value", "");
+        //     ["txtDenominacion", "txtNumInscripcion", "txtCapital", "txtEstadoPersona"].forEach(dx);
+
+        //     ["formPersonaJuridica", "formDatosEmpresa"].forEach(id => {
+        //         const form = $("#" + id).dxForm("instance");
+        //         if (form) form.option("formData", {});
+        //     });
+
+        //     ["gridBalances", "gridRepresentantes", "gridApoderados"].forEach(id => {
+        //         const grid = $("#" + id).dxDataGrid("instance");
+        //         if (grid) grid.option("dataSource", []);
+        //     });
+        // }
+
+            function limpiarNitResultado() {
+        const form = $("#nitForm").dxForm("instance");
+        form.updateData({ nit: "" });
+        form.getEditor("nit").focus();
+
+        ["formPersonaJuridica", "formDatosEmpresa"].forEach(id => {
+            const form = $("#" + id).dxForm("instance");
+            if (form) form.option("formData", {});
+        });
+
+        ["gridBalances", "gridRepresentantes", "gridApoderados"].forEach(id => {
+            const grid = $("#" + id).dxDataGrid("instance");
+            if (grid) grid.option("dataSource", []);
+        });
+
+        document.getElementById("tabsResultado").style.display = "none";
+                document.getElementById("titles").classList.add("text-center","mb-3");
+                document.getElementById("titles").classList.remove("titles_small","text-start","mb-2","ps-3");
+    }
+    </script>
+

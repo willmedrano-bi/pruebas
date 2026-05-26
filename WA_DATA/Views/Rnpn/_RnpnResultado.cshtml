@@ -1,0 +1,124 @@
+﻿@model Library.Models.DTOs.Rnpn.RnpnData
+@if (Model != null)
+{
+    <div class="card border-0 rounded-4 shadow-sm p-1 p-sm-2 p-md-3 p-lg-5 mt-2 mx-auto animate__animated animate__fadeInUp animate__faster">
+        <div class="d-flex justify-content-start align-items-center mb-4">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-check-circle text-success align-items-center fs-5"></i>
+                <h2 class="h6 mb-0">Resultado de Consulta: </h2>
+            </div>
+        </div>
+
+        <div class="table-responsive ">
+            <table class="table border-info-subtle align-middle mb-0">
+                <tbody>
+                    <tr>
+                        <th class="text-primary fw-normal w-25">DUI</th>
+                        <td >@Model.dui</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Nombre completo</th>
+                        <td >@Model.nom1 @Model.nom2 @Model.nom3 @Model.ape1 @Model.ape2 @Model.apdoCsda</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Fecha nacimiento</th>
+                        <td >@Model.fechNaci</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Lugar de Nacimiento</th>
+                        <td >@Model.nombPaisNaci, @Model.nombDeptNaci, @Model.rMuniNaci (@Model.nombMuniNaci)</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Lugar de Emisión</th>
+                        <td >@Model.paisExpe, @Model.deptExpe, @Model.rMuniEmisDui (@Model.muniExpe)</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Lugar de Domicilio</th>
+                        <td >@Model.paisDomi, @Model.deptDomi, @Model.rMuniDomic (@Model.municDomi)</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Fecha emisión</th>
+                        <td >@Model.fechExpe</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Fecha vencimiento</th>
+                        <td >@Model.fechVenc</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Estado Civil</th>
+                        <td >@Model.estaFami</td>
+                    </tr>
+                    <tr>
+                        <th class="text-primary fw-normal">Profesión</th>
+                        <td >@Model.profesion</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+   @*  <div class="mb-4 bg-white p-4 mt-3 card border-0 shadow-sm col-md-12 mx-auto">
+        @(Html.DevExtreme().Form()
+            .ID("formResultadoRnpn")
+            .FormData(Model)
+            .ReadOnly(true)
+            .LabelLocation(FormLabelLocation.Top)
+            .ColCount(3)
+            .Items(items =>
+            {
+                items.AddSimple().DataField("dui").Label(l => l.Text("DUI"));
+                items.AddSimple().DataField("nom1").Label(l => l.Text("Primer Nombre"));
+                items.AddSimple().DataField("nom2").Label(l => l.Text("Segundo Nombre"));
+                items.AddSimple().DataField("nom3").Label(l => l.Text("Tercer Nombre"));
+                items.AddSimple().DataField("ape1").Label(l => l.Text("Primer Apellido"));
+                items.AddSimple().DataField("ape2").Label(l => l.Text("Segundo Apellido"));
+                items.AddSimple().DataField("apdoCsda").Label(l => l.Text("Apellido de Casada"));
+                items.AddSimple().DataField("fechNaci").Label(l => l.Text("Fecha Nacimiento"));
+                items.AddSimple().DataField("nombPaisNaci").Label(l => l.Text("País Nacimiento"));
+                items.AddSimple().DataField("nombDeptNaci").Label(l => l.Text("Departamento Nacimiento"));
+                items.AddSimple().DataField("rMuniNaci").Label(l => l.Text("Municipio (real)"));
+                items.AddSimple().DataField("nombMuniNaci").Label(l => l.Text("Distrito"));
+                items.AddSimple().DataField("paisExpe").Label(l => l.Text("País Emisión"));
+                items.AddSimple().DataField("deptExpe").Label(l => l.Text("Departamento Emisión"));
+                items.AddSimple().DataField("rMuniEmisDui").Label(l => l.Text("Municipio Emisión (real)"));
+                items.AddSimple().DataField("muniExpe").Label(l => l.Text("Distrito Emisión"));
+                items.AddSimple().DataField("fechVenc").Label(l => l.Text("Fecha Vencimiento"));
+                items.AddSimple().DataField("fechExpe").Label(l => l.Text("Fecha Emisión"));
+                items.AddSimple().DataField("paisDomi").Label(l => l.Text("País Domicilio"));
+                items.AddSimple().DataField("deptDomi").Label(l => l.Text("Departamento Domicilio"));
+                items.AddSimple().DataField("rMuniDomic").Label(l => l.Text("Municipio Domicilio (real)"));
+                items.AddSimple().DataField("municDomi").Label(l => l.Text("Distrito Domicilio"));
+                items.AddSimple().DataField("profesion").Label(l => l.Text("Profesión"));
+                items.AddSimple().DataField("estaFami").Label(l => l.Text("Estado Familiar"));
+            })
+            )
+    </div> *@
+
+    @if (Model.conoPor != null && Model.conoPor.Any())
+    {
+        <div class="mb-4">
+            <h4>Conocido Por</h4>
+            @(Html.DevExtreme().DataGrid()
+                .ID("gridConocidoPor")
+                .DataSource(Model.conoPor)
+                .ShowBorders(true)
+                .ColumnAutoWidth(true)
+                .WordWrapEnabled(true)
+                .RowAlternationEnabled(true)
+                .ColumnHidingEnabled(true)
+                .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+                .Columns(columns =>
+                {
+                    columns.Add().DataField("nom1").Caption("Primer Nombre");
+                    columns.Add().DataField("nom2").Caption("Segundo Nombre");
+                    columns.Add().DataField("nom3").Caption("Tercer Nombre");
+                    columns.Add().DataField("ape1").Caption("Primer Apellido");
+                    columns.Add().DataField("ape2").Caption("Segundo Apellido");
+                    columns.Add().DataField("apdoCsda").Caption("Apellido de Casada");
+                })
+                )
+        </div>
+    }
+}

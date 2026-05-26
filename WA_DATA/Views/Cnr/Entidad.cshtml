@@ -1,0 +1,127 @@
+﻿@using Library.Models.DTOs.Cnr
+
+@{
+    ViewData["Title"] = "Consulta CNR por NIT";
+}
+<style>
+    .btn-broom {
+        background-color: #f1c40f !important; /* Cambia a tu color deseado */
+        color: #2c2c2c !important;
+        border: none !important;
+    }
+
+        .btn-broom:hover, .btn-broom:focus {
+            background-color: #ffe066 !important;
+            color: #222 !important;
+        }</style>
+
+<main class="d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
+
+    <div id="titles" class="animate__animated animate__fadeIn animate__faster">
+        <h1 class="fw-semibold text-dark mb-1 text-center h3"> <i class="fas fa-search fs-4 text-primary pe-3"></i> Busqueda por Documento</h1>
+        <div class="mb-4 text-muted text-center">
+            <small>Ingrese el número de NIT que deseas consultar</small>
+        </div>
+
+    </div>
+
+    <div id="Buscador" class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp col-12 col-md-8 col-lg-7 mb-3">
+        <div class="card-body p-4">
+            @(Html.DevExtreme().Form<NitRequest>()
+                .ID("nitForm")
+                .FormData(new { nit = "" })
+                        .ColCount(10)
+                .Items(items =>
+                {
+                    items.AddSimple()
+                            .ColSpan(7)
+                    .DataField("nit")
+                    .Editor(editor => editor.TextBox()
+                    .ShowClearButton(true)
+                    .Placeholder("Ingrese NIT"))
+                    .Label(l => l.Text("NIT"));
+
+                            items.AddButton()
+                            .ColSpan(2)
+                            .HorizontalAlignment(HorizontalAlignment.Right)
+                            .ButtonOptions(b => b
+                            .Text("Consultar")
+                            .Type(ButtonType.Default)
+                            .Icon("search")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("consultarNit"));
+
+                            items.AddButton()
+                            .ColSpan(1)
+                            .HorizontalAlignment(HorizontalAlignment.Left)
+                            .ButtonOptions(b => b
+                            .Icon("fas fa-arrow-rotate-left")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("limpiarDuiResultado"));
+
+                        })
+                )
+        </div>
+    </div>
+    <div id="codigoComun" class="container-fluid">
+    </div>
+
+</main>
+
+<script>
+    function consultarNit() {
+        const form = $("#nitForm").dxForm("instance");
+        const nit = form.option("formData").nit;
+        loadingPanel.show();
+        DevExpress.ui.notify("Consultando...", "info", 2000);
+
+        fetch('/Cnr/ConsultarCodigoComun', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nit })
+        })
+        .then(res => {
+        if (!res.ok) return handleHttpError(res);
+            return res.json();
+        })
+        .then(result => {
+            if (result?.success) {
+                 $("#titles").slideUp(200);
+                  document.getElementById("Buscador").classList.remove("col-md-8","col-lg-7");
+                  document.getElementById("Buscador").classList.add("col-md-10","col-lg-10");
+                DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                cargarCodigoComun(result.data);
+            } else {
+                DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+            }
+        })
+        .catch(err => {
+
+        })
+        .finally(() => {
+            loadingPanel.hide();
+        });;
+    }
+
+    function cargarCodigoComun(data) {
+
+        fetch('/Cnr/ConsultarCodigoComunPartial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.text())
+        .then(html => {
+            $("#codigoComun").html(html);
+        });
+    }
+    function limpiarDuiResultado() {
+        $("#codigoComun").empty();
+          $("#titles").slideDown(200);
+           document.getElementById("Buscador").classList.remove("col-md-10","col-lg-10");
+          document.getElementById("Buscador").classList.add("col-md-8","col-lg-7");
+          
+    }
+</script>

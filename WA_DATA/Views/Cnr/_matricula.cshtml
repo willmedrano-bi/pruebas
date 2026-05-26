@@ -1,0 +1,119 @@
+﻿@using Library.Models.DTOs.Cnr
+@model List<MatriculaPersona>
+<style>
+    .dx-datagrid .dx-link {
+        display: inline-block;
+        padding: 4px 12px;
+        background-color: #007acc;
+        color: white !important;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 13px;
+        margin-right: 6px;
+    }
+
+    .dx-datagrid .dx-link:hover {
+        background-color: #005fa3;
+    }
+</style>
+@(Html.DevExtreme().DataGrid<MatriculaPersona>()
+    .ID("gridCredenciales")
+    .DataSource(Model)
+    .ShowBorders(true)
+    .ColumnAutoWidth(true)
+    .WordWrapEnabled(true)
+    .RowAlternationEnabled(true)
+    .ColumnHidingEnabled(true)
+    .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+    .Paging(p => p.PageSize(10))
+    .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+     .Columns(columns =>
+    {
+        columns.Add().DataField("Matricula");
+        columns.Add().DataField("Indice");
+        columns.Add().DataField("TipoDerecho").DataType(GridColumnDataType.Date);
+        columns.Add().DataField("EstadoDerecho");
+        columns.Add().DataField("acciones").Type(GridCommandColumnType.Buttons).Buttons(b =>
+        {
+            b.Add().Text("Detalle de Matricula").OnClick(@<text>
+                function(e) {
+                    const Matricula = ""+e.row?.data?.Matricula;
+                    loadingPanel.show();
+                    DevExpress.ui.notify("Consultando...", "info", 2000);
+                    fetch('/Cnr/ConsultarDatosMatricula', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Matricula })
+                    })
+                    .then(res => {
+                        if (!res.ok) return handleHttpError(res);
+                        return res.json();
+                    })
+                    .then(result => {
+                        if (result?.success) {
+                            DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                            cargarMatriculaDatos(result.data,"ConsultarDatosMatricula");
+                        } else {
+                            DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+                        }
+                    })
+                    .catch(err => {
+
+                    })
+                    .finally(() => {
+                        loadingPanel.hide();
+                    });;
+                    
+                }
+            </text>);
+            b.Add().Text("Titular").OnClick(@<text>
+                function(e) {
+                    const Matricula = ""+e.row?.data?.Matricula;
+                    loadingPanel.show();
+                    DevExpress.ui.notify("Consultando...", "info", 2000);
+                    fetch('/Cnr/ConsultarTitular', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Matricula })
+                    })
+                    .then(res => {
+                        if (!res.ok) return handleHttpError(res);
+                        return res.json();
+                    })
+                    .then(result => {
+                        if (result?.success) {
+                            DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                            cargarMatriculaDatos(result.data,"ConsultarTitular");
+                        } else {
+                            DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+                        }
+                    })
+                    .catch(err => {
+
+                    })
+                    .finally(() => {
+                        loadingPanel.hide();
+                    });;
+                }
+            </text>);
+        });
+    }) 
+)
+
+<div id="datos_matricula" class="card rounded-4 border-0 shadow-sm col bg-white d-flex p-3 overflow-auto" style="height:70vh;">
+    <!-- contenido dinámico -->
+</div>
+
+<script>
+    function cargarMatriculaDatos(data,ruta) {
+        fetch('/Cnr/'+ruta+"Partial", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.text())
+        .then(html => {
+            $("#datos_matricula").html(html);
+        });
+    }
+</script>

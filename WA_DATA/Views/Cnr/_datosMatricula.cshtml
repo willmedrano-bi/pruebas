@@ -1,0 +1,175 @@
+﻿
+@using Library.Models.DTOs.Cnr
+@model DatosMatricula
+
+<div class="card rounded-4 border-0 shadow-sm p-2 mt-3 mb-4 animate__animated animate__fadeInUp">
+    <div class="card-body">
+        <!-- NavTabs para navegación -->
+        <div class="bg-light rounded-4 p-2 mb-3">
+            <ul class="nav nav-tabs border-0 mx-auto d-flex w-100 gap-2" id="catastroTabs" role="tablist">
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link active w-100"
+                            id="tab-datos-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tab-datos"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-datos"
+                            aria-selected="true">
+                        Datos generales
+                    </button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100"
+                            id="tab-inmueble-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tab-inmueble"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-inmueble"
+                            aria-selected="false"
+                            onclick="consultarCatastroTab('@Model.ClaveCatastral', 'ConsultarInmueble', 'tab-inmueble-content')">
+                        Datos Inmueble
+                    </button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100"
+                            id="tab-propietario-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tab-propietario"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-propietario"
+                            aria-selected="false"
+                            onclick="consultarCatastroTab('@Model.ClaveCatastral', 'ConsultarPropietarioCatastro', 'tab-propietario-content')">
+                        Propietario Catastro
+                    </button>
+                </li>
+                <li class="nav-item flex-fill text-center" role="presentation">
+                    <button class="nav-link w-100"
+                            id="tab-coordenadas-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tab-coordenadas"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-coordenadas"
+                            aria-selected="false"
+                            onclick="consultarCatastroTab('@Model.ClaveCatastral', 'ConsultarCoordenada', 'tab-coordenadas-content')">
+                        Coordenadas
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Contenidos de los tabs -->
+        <div class="tab-content rounded-2" id="catastroTabContent">
+            <!-- TAB 1: Datos generales (mostrar por defecto) -->
+            <div class="tab-pane fade show active p-3" id="tab-datos" role="tabpanel" aria-labelledby="tab-datos-tab">
+                <div class="container-fluid px-0">
+                    <h3 class="mb-3 text-primary-emphasis h6">Datos del Generales:</h3>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Estado folio:</div>
+                        <div class="col-12 col-md-3">@Model.EstadoFolio</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Area:</div>
+                        <div class="col-12 col-md-3">@Model.Area</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Resto registral:</div>
+                        <div class="col-12 col-md-3">@Model.RestoRegistral</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Volumen:</div>
+                        <div class="col-12 col-md-3">@Model.Volumen</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Naturaleza inmueble:</div>
+                        <div class="col-12 col-md-3">@Model.NaturalezaInmueble</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Fecha creación matricula:</div>
+                        <div class="col-12 col-md-3">@Model.FechaCreacionMatricula</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Antecedente folio real:</div>
+                        <div class="col-12 col-md-3">@Model.AntecedenteFolioReal</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Antecedente libro:</div>
+                        <div class="col-12 col-md-3">@Model.AntecedenteLibro</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Número libro:</div>
+                        <div class="col-12 col-md-3">@Model.NumeroLibro</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Número inscripción:</div>
+                        <div class="col-12 col-md-3">@Model.NumeroInscripcion</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12 col-md-3 text-primary fw-normal">Nombre inmueble:</div>
+                        <div class="col-12 col-md-3">@Model.NombreInmueble</div>
+                        <div class="col-12 col-md-3 text-primary fw-normal">Clave catastral:</div>
+                        <div class="col-12 col-md-3">@Model.ClaveCatastral</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12  col-md-3 text-primary fw-normal">Dirección:</div>
+                        <div class="col-12  col-md-9">@Model.Direccion</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Datos inmueble (contenido dinámico) -->
+            <div class="tab-pane fade p-3" id="tab-inmueble" role="tabpanel" aria-labelledby="tab-inmueble-tab">
+                <div id="tab-inmueble-content"></div>
+            </div>
+            <!-- TAB 3: Propietario catastro (contenido dinámico) -->
+            <div class="tab-pane fade p-3" id="tab-propietario" role="tabpanel" aria-labelledby="tab-propietario-tab">
+                <div id="tab-propietario-content"></div>
+            </div>
+            <!-- TAB 4: Coordenadas (contenido dinámico) -->
+            <div class="tab-pane fade p-3" id="tab-coordenadas" role="tabpanel" aria-labelledby="tab-coordenadas-tab">
+                <div id="tab-coordenadas-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+        function consultarCatastroTab(clave, ruta, contenedorId) {
+        const ClaveCatastral = clave;
+        const contenedor = $("#"+contenedorId);
+
+        //if (!contenedor) return;
+       // if (contenedor.innerHTML.trim() !== "") return;
+
+        loadingPanel.show();
+        DevExpress.ui.notify("Consultando...", "info", 2000);
+
+        fetch('/Cnr/' + ruta, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ClaveCatastral })
+        })
+        .then(res => {
+            if (!res.ok) return handleHttpError(res);
+            return res.json();
+        })
+        .then(result => {
+            if (result?.success) {
+                DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                fetch('/Cnr/' + ruta + 'Partial', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(result.data)
+                })
+                .then(res => res.text())
+                .then(html => {
+                     contenedor.html(html);
+                });
+            } else {
+                contenedor.html('<div class="d-flex flex-column justify-content-center align-items-center opacity-50"><img class="mb-5" width="350px" src="/assets/media/gota_duda_v2.png" /><h3 class="text-center text-primary-emphasis h5"><i class="fa-solid fa-circle-exclamation me-2"></i>Sin Datos.</h1></div>');
+                DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+            }
+        })
+        .catch(err => {
+            // manejo de error
+        })
+        .finally(() => {
+            loadingPanel.hide();
+        });
+    }
+
+</script>

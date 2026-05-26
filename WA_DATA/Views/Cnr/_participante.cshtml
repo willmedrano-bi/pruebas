@@ -1,0 +1,28 @@
+﻿@using Library.Models.DTOs.Cnr
+@model List<Participante>
+@(Html.DevExtreme().DataGrid<Participante>()
+    .ID("gridCredenciales")
+    .DataSource(Model)
+    .ShowBorders(true)
+    .ColumnAutoWidth(true)
+    .WordWrapEnabled(true)
+    .RowAlternationEnabled(true)
+    .ColumnHidingEnabled(true)
+    .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+    .Paging(p => p.PageSize(10))
+    .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+   @*  .Columns(columns =>
+    {
+        columns.Add().DataField("Sociedad");
+        columns.Add().DataField("Nombramiento");
+        columns.Add().DataField("FechaOtorgamiento").DataType(GridColumnDataType.Date);
+        columns.Add().DataField("TipoDocumento");
+        columns.Add().DataField("CodigoServicio");
+        columns.Add().DataField("NumeroPresentacion");
+        columns.Add().DataField("CodigoSociedad");
+        columns.Add().DataField("InsAsiento");
+        columns.Add().DataField("NumLibro");
+        columns.Add().DataField("InsFecha").DataType(GridColumnDataType.Date);
+        columns.Add().DataField("TLibro");
+    }) *@
+)

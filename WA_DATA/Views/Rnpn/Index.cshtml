@@ -1,0 +1,141 @@
+﻿@using Library.Models.DTOs.Rnpn
+
+@{
+    ViewData["Title"] = "Consulta RNPN por DUI";
+}
+
+<style>
+    #titles {
+        transition: max-height 0.5s ease, opacity 0.5s ease;
+        overflow: hidden;
+        max-height: 200px;
+        opacity: 1;
+    }
+
+    .oculto {
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+ </style>
+
+<main class="d-flex flex-column align-items-center justify-content-center mb-4" style="min-height: 66vh;">
+
+    <div id="titles" class="col-12 col-md-8 col-lg-7 animate__animated animate__fadeIn animate__faster text-center mb-3">
+        <h1 class="fw-semibold text-dark h3">
+            <i class="fas fa-search text-primary pe-2"></i> Búsqueda por Documento
+        </h1>
+        <div  class="text-muted text-center">
+            <small>Ingrese el número de DUI que deseas consultar.</small>
+        </div>
+    </div>
+
+    <!-- Contenedor del formulario -->
+    <div class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp animate__faster col-12 col-md-8 col-lg-7 mb-2">
+        <div class="card-body p-4">
+            @(Html.DevExtreme().Form<DuiRequest>()
+                        .ID("duiForm")
+                        .FormData(new { dui = "" })
+                        .ColCount(10)
+                        .Items(items =>
+                        {
+                            items.AddSimple()
+                            .DataField("dui")
+                            .ColSpan(7)
+                            .Editor(editor => editor.TextBox()
+                            .Mask("00000000-0")
+                            .UseMaskedValue(true)
+                            .ShowClearButton(true)
+                            .Placeholder("Ingrese DUI"))
+                            .Label(l => l.Text("DUI"));
+
+                            items.AddButton()
+                            .ColSpan(2)
+                            .HorizontalAlignment(HorizontalAlignment.Right)
+                            .ButtonOptions(b => b
+                            .Text("Consultar")
+                            .Type(ButtonType.Default)
+                            .Icon("search")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("consultarDui"));
+
+                            items.AddButton()
+                            .ColSpan(1)
+                            .HorizontalAlignment(HorizontalAlignment.Left)
+                            .ButtonOptions(b => b
+                            .Icon("fas fa-arrow-rotate-left")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("limpiarDuiResultado"));
+                        })
+                        )
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="contenedorParcial" class="col-12 col-md-8 col-lg-7">
+        @Html.Partial("_RnpnResultado", null)
+    </div>
+
+</main>
+
+
+<script>
+    function consultarDui() {
+        const form = $("#duiForm").dxForm("instance");
+        const dui = form.option("formData").dui;
+        loadingPanel.show();
+        limpiarDuiResultado();
+        DevExpress.ui.notify("Consultando...", "info", 2000);
+
+        fetch('/Rnpn/ConsultarDui', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dui })
+        })
+        .then(res => {
+        if (!res.ok) return handleHttpError(res); 
+            return res.json();
+        })
+        .then(result => {
+            if (result?.success) {
+                document.getElementById("titles").classList.remove("text-center","mb-3");
+                document.getElementById("titles").classList.add("titles_small","text-start","mb-2","ps-3");
+                DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                cargarPartialRnpn(result.data[0]);
+               
+                
+            } else {
+                DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+            }   
+        })
+        .catch(err => {
+          
+        })
+        .finally(() => {
+            loadingPanel.hide(); 
+        });;
+    }
+
+    function cargarPartialRnpn(data) {
+
+        fetch('/Rnpn/ConsultarPorDuiPartial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.text())
+        .then(html => {
+            $("#contenedorParcial").html(html);
+        });
+    }
+
+        function limpiarDuiResultado() {
+                $("#contenedorParcial").empty();
+                document.getElementById("titles").classList.add("text-center","mb-3");
+                document.getElementById("titles").classList.remove("titles_small","text-start","mb-2","ps-3");
+   
+        }
+    </script>
+

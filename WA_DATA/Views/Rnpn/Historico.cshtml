@@ -1,0 +1,154 @@
+﻿@{
+    ViewData["Title"] = "Historial por DUI";
+}
+<style>
+    .form-label {
+        margin-top: 0.25rem;
+        margin-bottom: 0.25rem;
+        display: block;
+        color: #3f51b5;
+    }
+</style>
+
+<main class="d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
+
+    <div id="titles" class="col-12 col-md-8 col-lg-7 animate__animated animate__fadeIn animate__faster text-center mb-3">
+        <h1 class="fw-semibold text-dark h3">
+            <i class="fas fa-search text-primary pe-2"></i> Consulta Historial por Número de DUI
+        </h1>
+        <div class="text-muted text-center">
+            <small>Ingrese el número de DUI que deseas consultar</small>
+        </div>
+    </div>
+    
+    <div class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp animate__faster col-12 col-md-8 col-lg-7 mb-4">
+        <div id="formDuiHistorial" class="card-body p-4">
+            @(Html.DevExtreme().Form()
+                .ID("historialForm")
+                .FormData(new { dui = "" })
+                .ColCount(10)
+                .Items(items =>
+                {
+                    items.AddSimple()
+                    .DataField("dui")
+                            .ColSpan(7)
+                    .Editor(editor => editor.TextBox()
+                    .Mask("00000000-0")
+                    .ShowClearButton(true)
+                    .UseMaskedValue(true)
+                    .Placeholder("Ingrese DUI"))
+                    .Label(l => l.Text("DUI"));
+
+                            items.AddButton()
+                            .ColSpan(2)
+                            .HorizontalAlignment(HorizontalAlignment.Right)
+                            .ButtonOptions(b => b
+                            .Text("Consultar")
+                            .Type(ButtonType.Default)
+                            .Icon("search")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("consultarHistorial"));
+
+                            items.AddButton()
+                            .ColSpan(1)
+                            .HorizontalAlignment(HorizontalAlignment.Left)
+                            .ButtonOptions(b => b
+                            .Icon("fas fa-arrow-rotate-left")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("limpiarHistorial"));
+
+                })
+                )
+        </div>
+    </div>
+    <div id="gridContainer" class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeIn animate__faster col-12 col-md-8 col-lg-7 mb-4 p-3" style="display:none;">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="fas fa-check-circle text-success fs-5"></i>
+            <h2 class="h6">Resultados</h2>
+        </div>
+        @(Html.DevExtreme().DataGrid()
+                .ID("gridHistorial")
+                .ShowBorders(true)
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }))
+                .Columns(columns =>
+                {
+                    columns.Add().DataField("dui").Caption("DUI");
+                    columns.Add().DataField("nomb").Caption("Nomb");
+                })
+                )  
+    </div>
+</main>
+
+<script>
+    function consultarHistorial() {
+        const form = $("#historialForm").dxForm("instance");
+        const dui = form.option("formData").dui;
+        
+        // if (!dui || dui.length !== 10) {
+        //     DevExpress.ui.notify("Debe ingresar un DUI válido", "warning", 2500);
+        //     return;
+        // }
+        loadingPanel.show();
+        fetch("/Rnpn/ConsultarHistorico", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ dui })
+        })
+        .then(res => {
+            if (!res.ok) {
+                const grid = $("#gridHistorial").dxDataGrid("instance");
+                if (grid) {
+                    grid.option("dataSource", []);
+                }
+                return handleHttpError(res);
+            }
+            return res.json();
+        })
+        .then(result => {
+             if (result?.success) {
+                document.getElementById("titles").classList.remove("text-center","mb-3");
+                document.getElementById("titles").classList.add("titles_small","text-start","mb-2","ps-3");
+                DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                $("#gridContainer").show();
+                $("#gridHistorial").dxDataGrid("instance").option("dataSource", result.data);
+            } else {
+                DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+            }       
+        })
+        .catch(() => {
+
+        })
+        .finally(() => {
+            loadingPanel.hide();
+        });
+    }
+    function limpiarHistorial() {
+          $("#gridContainer").hide();
+        const form = $("#historialForm").dxForm("instance");
+        form.updateData({ dui: null });
+        const grid = $("#gridHistorial").dxDataGrid("instance");
+        if (grid) {
+            grid.option("dataSource", []);
+        }
+                document.getElementById("titles").classList.add("text-center","mb-3");
+                document.getElementById("titles").classList.remove("titles_small","text-start","mb-2","ps-3");
+        form.getEditor("dui").focus();
+    }
+
+
+
+    function limpiarTabla() {
+
+          $("#resultadoPersona").hide();
+        const grid = $("#gridHistorial").dxDataGrid("instance");
+        if (grid) {
+            grid.option("dataSource", []);
+
+        }
+    }
+</script>

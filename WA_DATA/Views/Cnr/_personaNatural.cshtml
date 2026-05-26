@@ -1,0 +1,31 @@
+﻿@using Library.Models.DTOs.Cnr
+@model PersonaNatural
+<div class="card rounded-4 border-0 shadow-sm p-2 mt-3 mb-4 animate__animated animate__fadeInUp" style="max-width: 1000px;">
+    <div class="card-body">
+        <div class="container-fluid px-0">
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Nombre:</div>
+                <div class="col-12 col-md-9">@Model.Nombre</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Dirección:</div>
+                <div class="col-12 col-md-9">@Model.DireccionMatriz</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Número de inscripción:</div>
+                <div class="col-12 col-md-3">@Model.NumeroInscripcion</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Última renovación:</div>
+                <div class="col-12 col-md-3">@Model.UltimaRenovacion</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Último balance:</div>
+                <div class="col-12 col-md-3">@Model.UltimoBalance</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Activo último balance:</div>
+                <div class="col-12 col-md-3">@Model.ActivoUltimoBalance</div>
+            </div>
+        </div>
+    </div>
+</div>

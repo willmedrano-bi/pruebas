@@ -1,0 +1,216 @@
+﻿@model Library.Models.DTOs.Rnpn.PersonaRequest
+
+@{
+    ViewData["Title"] = "Consulta de Persona";
+}
+
+<main class="d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
+
+     <div id="titles" class="col-12 col-md-8 col-lg-7 animate__animated animate__fadeIn animate__faster text-center mb-3">
+        <h1 class="fw-semibold text-dark h3">
+            <i class="fas fa-search text-primary pe-2"></i> Consulta de Persona por Filtros
+        </h1>
+        <div  class="text-muted text-center">
+            <small>Ingrese datos que deseas filtrar sin tilde</small>
+        </div>
+    </div>
+
+   
+    <div class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeInUp  animate__faster col-12 col-md-8 col-lg-7 mb-2">
+        <div id="formPersona" class="card-body p-4">
+            @(Html.DevExtreme().Form()
+                    .ID("personaForm")
+                    .FormData(Model)
+                    .LabelLocation(FormLabelLocation.Top)
+                    .ColCount(6)
+                    .Items(items =>
+                    {
+                        items.AddSimple().DataField(nameof(Model.Nom1))
+                        .ColSpan(3)
+                            .Label(l => l.Text("Primer nombre"))
+                            .Editor(e => e.TextBox().Placeholder("Ej. Juan"));
+
+                        items.AddSimple().DataField(nameof(Model.Nom2))
+                        .ColSpan(3)
+                            .Label(l => l.Text("Segundo nombre"))
+                            .Editor(e => e.TextBox().Placeholder("Ej. Carlos"));
+
+                        items.AddSimple().DataField(nameof(Model.Ape1))
+                        .ColSpan(3)
+                            .Label(l => l.Text("Primer apellido"))
+                            .Editor(e => e.TextBox().Placeholder("Ej. Perez"));
+
+
+                        items.AddSimple().DataField(nameof(Model.Ape2))
+                        .ColSpan(3)
+                            .Label(l => l.Text("Segundo apellido"))
+                            .Editor(e => e.TextBox().Placeholder("Ej. Gomez"));
+
+                        items.AddSimple().DataField(nameof(Model.FechNaci))
+                        .ColSpan(3)
+                            .Label(l => l.Text("Fecha de nacimiento"))
+                            .Editor(e => e.DateBox()
+                            .Type(DateBoxType.Date)
+                            .DisplayFormat("dd/MM/yyyy")
+                            .ValueChangeEvent("change") 
+                            .UseMaskBehavior(true));
+                                        
+                            items.AddButton()
+                            .ColSpan(1)
+                             .CssClass("pt-4")
+                            .HorizontalAlignment(HorizontalAlignment.Left)
+                            .ButtonOptions(b => b
+                            .Icon("fas fa-arrow-rotate-left")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("limpiarFormulario"));
+
+                    items.AddButton()
+                            .ColSpan(2)
+                             .CssClass("pt-4")
+                            .HorizontalAlignment(HorizontalAlignment.Right)
+                            .ButtonOptions(b => b
+                            .Text("Consultar")
+                            .Type(ButtonType.Default)
+                            .Icon("search")
+                            .StylingMode(ButtonStylingMode.Contained)
+                            .Width("100%")
+                            .OnClick("consultarPersona"));
+
+                          
+
+                    })
+
+                )
+        </div>
+    </div>
+      <div id="resultadoPersona" class="card rounded-4 border-0 shadow-sm animate__animated animate__fadeIn animate__faster col-12 col-md-8 col-lg-7 mb-4 p-3 mx-auto" style="display:none;">
+           <div class="d-flex align-items-center gap-2 pb-3">
+                <i class="fas fa-check-circle text-success fs-5"></i>
+                <h2 class="h6 mb-0">Resultados de Consulta:</h2>
+            </div>
+            @(Html.DevExtreme().DataGrid()
+                .ID("gridPersonas")
+                .ShowBorders(true)
+                .ColumnAutoWidth(true)
+                .WordWrapEnabled(true)
+                .RowAlternationEnabled(true)
+                .ColumnHidingEnabled(true)
+                .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+                .Columns(columns =>
+                {
+                        columns.Add().DataField("dui").Caption("DUI");
+                        columns.Add()
+                        .Caption("Nombres completos")
+                        .CalculateCellValue(
+                            @<text>
+                                function(data) {
+                                return [data.nom1, data.nom2, data.nom3, ].filter(Boolean).join(' ');
+                                }
+                            </text>);
+                         columns.Add()
+                        .Caption("Apellidos completos")
+                        .CalculateCellValue(
+                            @<text>
+                                function(data) {
+                                return [data.ape1, data.ape2, data.apdoCsda].filter(Boolean).join(' ');
+                                }
+                            </text>);
+                        columns.Add().DataField("fechNaci").Caption("Fecha de Nacimiento");
+
+                        columns.Add().DataField("profesion").Caption("Profesión");
+                        columns.Add().DataField("estaFami").Caption("Estado Familiar");
+
+                        columns.Add().DataField("nombPaisNaci").Caption("País de Nacimiento");
+                        columns.Add().DataField("nombDeptNaci").Caption("Departamento de Nacimiento");
+                        columns.Add().DataField("rMuniNaci").Caption("Municipio de Nacimiento");
+                        columns.Add().DataField("nombMuniNaci").Caption("Distrito de Nacimiento");
+
+                        columns.Add().DataField("paisExpe").Caption("País de Emisión");
+                        columns.Add().DataField("deptExpe").Caption("Departamento de Emisión");
+                        columns.Add().DataField("rMuniEmisDui").Caption("Municipio de Emisión");
+                        columns.Add().DataField("muniExpe").Caption("Distrito de Emisión");
+
+                        columns.Add().DataField("fechExpe").Caption("Fecha de Emisión");
+                        columns.Add().DataField("fechVenc").Caption("Fecha de Vencimiento");
+
+                        columns.Add().DataField("paisDomi").Caption("País de Domicilio");
+                        columns.Add().DataField("deptDomi").Caption("Departamento de Domicilio");
+                        columns.Add().DataField("rMuniDomic").Caption("Municipio de Domicilio");
+                        columns.Add().DataField("municDomi").Caption("Distrito de Domicilio");
+
+                    
+                    })
+                )
+        </div>
+</main>
+<script>
+    function consultarPersona() {
+        const form = $("#personaForm").dxForm("instance");
+        const data = form.option("formData");
+        const camposValidos = [data.Nom1, data.Nom2, data.Ape1, data.Ape2, data.FechNaci].filter(x => x !== null && x !== undefined && x !== "");
+        if (camposValidos.length < 3) {
+            DevExpress.ui.notify("Debe completar al menos tres filtros para realizar la búsqueda", "warning", 3000);
+            return;
+        }
+        loadingPanel.show();
+        fetch("/Rnpn/ConsultarNombre", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+        .then(res => {
+            if (!res.ok) {
+                limpiarTabla();
+                return handleHttpError(res);    
+            }
+            return res.json();
+        })
+        .then(result => {
+
+            if (result?.success) {
+                document.getElementById("titles").classList.remove("text-center","mb-3");
+                document.getElementById("titles").classList.add("titles_small","text-start","mb-2","ps-3");
+                DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                if (result.data && result.data.length > 0) {
+                    $("#resultadoPersona").show();
+                    const grid = $("#gridPersonas").dxDataGrid("instance");
+                    grid.option("dataSource", result.data);
+                }
+            } else {
+                DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+            }
+
+            
+        })
+        .catch(err => {
+           
+        })
+        .finally(() => {
+            loadingPanel.hide();
+        });
+    }
+       function limpiarFormulario() {
+        const form = $("#personaForm").dxForm("instance");
+        form.updateData({
+            Nom1: null,
+            Nom2: null,
+            Ape1: null,
+            Ape2: null,
+            FechNaci: null
+        });
+        limpiarTabla();
+         form.getEditor("Nom1").focus();
+    }
+    function limpiarTabla() {
+        document.getElementById("titles").classList.add("text-center","mb-3");
+        document.getElementById("titles").classList.remove("titles_small","text-start","mb-2","ps-3");
+        $("#resultadoPersona").hide();
+        const grid = $("#gridPersonas").dxDataGrid("instance");
+        if (grid) {
+            grid.option("dataSource", []);
+        }
+    }
+</script>

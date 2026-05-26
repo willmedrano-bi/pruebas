@@ -1,0 +1,190 @@
+﻿@using Library.Models.DTOs.Cnr
+@model PersonaJuridica
+
+
+<div class="bg-light rounded-4 p-2 mb-3">
+    <ul class="nav nav-tabs border-0 mx-auto d-flex w-100 gap-2" role="tablist">
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link active w-100" data-bs-toggle="tab" data-bs-target="#tab-datos-generales" type="button" role="tab">Generales</button>
+        </li>
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tab-datos-especificos" type="button" role="tab">Específicos</button>
+        </li>
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tab-balances" type="button" role="tab">Balances</button>
+        </li>
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tab-representantes" type="button" role="tab">Representantes</button>
+        </li>
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#tab-apoderados" type="button" role="tab">Apoderados</button>
+        </li>
+    </ul>
+</div>
+
+<div class="tab-content p-2">
+    <div class="tab-pane fade show active" id="tab-datos-generales" role="tabpanel">
+                <div class="container-fluid px-0 pt-3">
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Denominación:</div>
+                <div class="col-12 col-md-9">@Model.Denominacion</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Abreviatura:</div>
+                <div class="col-12 col-md-9">@Model.Abreviatura</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Código persona:</div>
+                <div class="col-12 col-md-3">@Model.CodigoPersona</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Estado persona:</div>
+                <div class="col-12 col-md-3">@Model.EstadoPersona</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Fecha inscripción:</div>
+                <div class="col-12 col-md-3">@Model.FechaInscripcion</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Número inscripción:</div>
+                <div class="col-12 col-md-3">@Model.NumeroInscripcion</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Libro inscripción:</div>
+                <div class="col-12 col-md-3">@Model.LibroInscripcion</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Capital inscrito:</div>
+                <div class="col-12 col-md-3">@Model.CapitalInscrito</div>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="tab-datos-especificos" role="tabpanel">
+       
+
+
+        <div class="container-fluid px-0 pt-3">
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Matrícula:</div>
+                <div class="col-12 col-md-9">@Model.DatosEmpresa.Matricula</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Dirección:</div>
+                <div class="col-12 col-md-9">@Model.DatosEmpresa.Departamento, @Model.DatosEmpresa.Municipio, @Model.DatosEmpresa.Distrito</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Dirección especifica:</div>
+                <div class="col-12 col-md-9">@Model.DatosEmpresa.DireccionMatriz</div>
+            </div>
+
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal">Estado de renovación Matrícula:</div>
+                <div class="col-12 col-md-3">@Model.DatosEmpresa.EstadoRenovacionMatricula</div>
+                <div class="col-12 col-md-3 text-primary fw-normal">Naturaleza:</div>
+                <div class="col-12 col-md-3">@Model.DatosEmpresa.Naturaleza</div>
+            </div>
+
+            <div class="row mb-2">
+                <div class="col-12 col-md-3 text-primary fw-normal"> Actividad economica:</div>
+                <div class="col-12 col-md-9">@Model.DatosEmpresa.ActividadEconomica</div>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="tab-balances" role="tabpanel">
+       
+        @(Html.DevExtreme().DataGrid<BalanceDepositado>()
+                .ID("gridBalances")
+                .DataSource(Model.BalancesDepositados)
+                .ShowBorders(true)
+                .ColumnAutoWidth(true)
+                .WordWrapEnabled(true)
+                .RowAlternationEnabled(true)
+                .ColumnHidingEnabled(true)
+                .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+                .Columns(columns =>
+                {
+                    columns.Add().DataField("NumeroPresentacion");
+                    columns.Add().DataField("TipoBalance");
+                    columns.Add().DataField("Anio");
+                    columns.Add().DataField("FechaDeposito");
+                    columns.Add().DataField("NumeroDeposito");
+                    columns.Add().DataField("Activo");
+                })
+                )
+    </div>
+    <div class="tab-pane fade" id="tab-representantes" role="tabpanel">
+        
+        @(Html.DevExtreme().DataGrid<RepresentanteLegal>()
+                .ID("gridRepresentantes")
+                .DataSource(Model.RepresentantesLegales)
+                .ShowBorders(true)
+                .ColumnAutoWidth(true)
+                .WordWrapEnabled(true)
+                .RowAlternationEnabled(true)
+                .ColumnHidingEnabled(true)
+                .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+                .Columns(columns =>
+                {
+                    columns.Add().DataField("NombreCompleto");
+                    columns.Add().DataField("NumeroInscripcion");
+                    columns.Add().DataField("LibroInscripcion");
+                    columns.Add().DataField("FechaInscripcion");
+                    columns.Add().DataField("NumeroPresentacion");
+                    columns.Add().DataField("PaisNacionalidad");
+                    columns.Add().DataField("PaisDomicilio");
+                    columns.Add().DataField("Estado");
+                    columns.Add()
+                    .Caption("Documentos")
+                    .CalculateCellValue(@<text>
+                                             function(data) {
+                                             if (!Array.isArray(data.Documentos)) return "Sin documentos";
+                                             return data.Documentos
+                                             .map(d => `${d.TipoDocumento}: ${d.NumeroDocumento} (${d.PaisEmision})`)
+                                             .join(", ");
+                                             }
+                                         </text>);
+                })
+                )
+    </div>
+    <div class="tab-pane fade" id="tab-apoderados" role="tabpanel">
+
+        
+        @(Html.DevExtreme().DataGrid<Apoderado>()
+                .ID("gridApoderados")
+                .DataSource(Model.Apoderados)
+                .ShowBorders(true)
+                .ColumnAutoWidth(true)
+                .WordWrapEnabled(true)
+                .RowAlternationEnabled(true)
+                .ColumnHidingEnabled(true)
+                .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+                .Paging(p => p.PageSize(10))
+                .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+                .Columns(columns =>
+                {
+                    columns.Add().DataField("NombreCompleto");
+                    columns.Add().DataField("NumeroInscripcion");
+                    columns.Add().DataField("LibroInscripcion");
+                    columns.Add().DataField("FechaInscripcion");
+                    columns.Add().DataField("NumeroPresentacion");
+                    columns.Add().DataField("PaisNacionalidad");
+                    columns.Add().DataField("PaisDomicilio");
+                    columns.Add()
+                    .Caption("Documentos")
+                    .CalculateCellValue(@<text>
+                                             function(data) {
+                                             if (!Array.isArray(data.Documentos)) return "Sin documentos";
+                                             return data.Documentos
+                                             .map(d => `${d.TipoDocumento}: ${d.NumeroDocumento} (${d.PaisEmision})`)
+                                             .join(", ");
+                                             }
+                                         </text>);
+                })
+                )
+    </div>
+</div>
+

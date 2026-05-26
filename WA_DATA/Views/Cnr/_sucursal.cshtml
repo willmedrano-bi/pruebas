@@ -1,0 +1,14 @@
+﻿@using Library.Models.DTOs.Cnr
+@model List<Sucursal>
+@(Html.DevExtreme().DataGrid<Sucursal>()
+    .ID("gridCredenciales")
+    .DataSource(Model)
+    .ShowBorders(true)
+    .ColumnAutoWidth(true)
+    .WordWrapEnabled(true)
+    .RowAlternationEnabled(true)
+    .ColumnHidingEnabled(true)
+    .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+    .Paging(p => p.PageSize(10))
+    .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+)

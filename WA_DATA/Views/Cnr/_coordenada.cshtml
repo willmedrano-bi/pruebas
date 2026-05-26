@@ -1,0 +1,29 @@
+﻿@using Library.Models.DTOs.Cnr
+@model List<Coordenada>
+<h3 class="mb-3 text-primary-emphasis h6">Coordenada:</h3>
+@(Html.DevExtreme().DataGrid<Coordenada>()
+    .ID("gridCoordenada")
+    .DataSource(Model)
+    .ShowBorders(true)
+    .ColumnAutoWidth(true)
+    .WordWrapEnabled(true)
+    .RowAlternationEnabled(true)
+    .ColumnHidingEnabled(true)
+    .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+    .Paging(p => p.PageSize(10))
+    .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+    .Columns(columns =>
+    {
+        columns.Add().DataField("Coordenadas");
+        columns.Add().DataField("Src");
+        columns.Add()
+        .Caption("Autores")
+        .CalculateCellValue(@<text>
+            function(data) {
+            if (!data.Autor) return "Sin Autor";
+            return `${data.Autor.Entidad}: ${data.Autor.Direccion}`;
+            }
+    </text>);
+    })
+)
+

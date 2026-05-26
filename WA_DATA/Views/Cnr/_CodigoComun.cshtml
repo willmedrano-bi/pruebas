@@ -1,0 +1,160 @@
+﻿@using Library.Models.DTOs.Cnr
+@model ConsultaNit
+<div class="row justify-content-center">
+    <div class="col-12 col-md-10">
+        <div class="row gap-3">
+
+            <!-- Panel lateral izquierdo -->
+            <div id="formPersona" class="card rounded-4 border-0 shadow-sm col-md-3 bg-white d-flex flex-column justify-content-start align-items-stretch p-3" style="height:70vh;">
+
+                <span class="text-dark mb-2 ps-2">Consultas:</span>
+
+                <div class="btn-group-vertical w-100 gap-3" role="group" aria-label="Acciones código común">
+                    <button type="button" class="btn btn-ac rounded-3 d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarPersonaJuridica"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarPersonaJuridica')">
+                        <i class="fas fa-building"></i> Persona Jurídica
+                    </button>
+                    <button type="button" class="btn btn-ac rounded-3 d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarCredencialPersonaNatural"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarCredencialPersonaNatural')">
+                        <i class="fas fa-id-card"></i> Credencial Natural
+                    </button>
+                    <button type="button" class="btn btn-ac rounded-3  d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarPersonaNatural"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarPersonaNatural')">
+                        <i class="fas fa-user"></i> Persona Natural
+                    </button>
+                    <button type="button" class="btn btn-ac rounded-3 d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarSucursal"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarSucursal')">
+                        <i class="fas fa-store-alt"></i> Sucursal
+                    </button>
+                    <button type="button" class="btn btn-ac rounded-3 d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarParticipante"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarParticipante')">
+                        <i class="fas fa-users"></i> Participante
+                    </button>
+                    <button type="button" class="btn btn-ac rounded-3 d-flex align-items-center gap-2 justify-content-start"
+                            data-ruta="ConsultarMatricula"
+                            onclick="consultar('@Model.CodigoComunes','ConsultarMatricula')">
+                        <i class="fas fa-clipboard-check"></i> Matrícula
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Contenedor derecho con datos -->
+            <div class="card rounded-4 border-0 shadow-sm col bg-white d-flex p-4" style="height:70vh;">
+                <div class="d-flex justify-content-between align-items-center mx-0 mb-3">
+                    <div class="d-flex align-items-center text-end gap-2">
+                        <h2 class="h5 text-primary mb-0"><i class="fa-solid fa-magnifying-glass text-info pe-3"></i>@Model.Denominacion</h2>
+                    </div>
+                    <hr />
+                </div>
+                
+                <div id="datos" class="overflow-y-auto overflow-x-hidden">
+                    <div id="ndata" class="d-flex flex-column justify-content-center align-items-center opacity-50" style="min-height:60vh;">
+                        <img class="mb-2" width="250px" src="~/assets/media/gota_busqueda_v2.png" />
+                        <span class="text-center text-primary-emphasis"><i class="fa-solid fa-magnifying-glass me-2"></i>Selecciona una consulta</span>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<script>
+    var _personaJuridica="";
+    var _credencialPersonaNatural="";
+    var _personaNatural = "";
+    var _sucursal = "";
+    var _participante = "";
+    var _matricula = "";
+
+    function consultar(codigo, ruta) {
+        const codigoComun = codigo;
+        document.querySelectorAll('[data-ruta]').forEach(btn => {
+            btn.classList.remove("active");
+            if (btn.getAttribute("data-ruta") === ruta) {
+                btn.classList.add("active");
+            }
+        });
+        bandera = true;
+        DevExpress.ui.notify("Consultando...", "info", 2000);
+        if(_personaJuridica != "" && ruta=="ConsultarPersonaJuridica" ){
+            bandera = false;
+            $("#datos").html(_personaJuridica);
+        }
+        if(_credencialPersonaNatural!="" && ruta=="ConsultarCredencialPersonaNatural"){
+            bandera = false;
+            $("#datos").html(_credencialPersonaNatural);
+        }
+        if(_personaNatural!="" && ruta=="ConsultarPersonaNatural"){
+            bandera = false;
+            $("#datos").html(_personaNatural);
+        }
+        if(_sucursal!="" && ruta=="ConsultarSucursal"){
+            bandera = false;
+            $("#datos").html(_sucursal);
+        }
+        if(_participante!="" && ruta=="ConsultarParticipante"){
+            bandera = false;
+            $("#datos").html(_participante);
+        }
+        if(_matricula!="" && ruta=="ConsultarMatricula"){
+            bandera = false;
+            $("#datos").html(_matricula);
+        }
+        if(bandera){
+            loadingPanel.show();
+            fetch('/Cnr/'+ruta, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigoComun })
+            })
+            .then(res => {
+            if (!res.ok) return handleHttpError(res);
+                return res.json();
+            })
+            .then(result => {
+                if (result?.success) {
+                    DevExpress.ui.notify("Registro encontrado", "success", 3000);
+                    cargarDatos(result.data,ruta);
+                } else {
+                    $("#datos").html('<div class="d-flex flex-column justify-content-center align-items-center opacity-50" style="min-height:60vh;"><img class="mb-5" width="250px" src="/assets/media/gota_duda_v2.png" /><h3 class="text-center text-primary-emphasis h6"><i class="fa-solid fa-circle-exclamation me-2"></i>Sin Datos.</h3></div>');
+                    DevExpress.ui.notify(result.message || "No se encontró información", "error", 3000);
+                }
+            })
+            .catch(err => {
+
+            })
+            .finally(() => {
+                loadingPanel.hide();
+            });;
+        }
+    }
+
+    function cargarDatos(data,ruta) {
+        fetch('/Cnr/'+ruta+"Partial", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.text())
+        .then(html => {
+            if( ruta=="ConsultarPersonaJuridica" )_personaJuridica=html;
+            if( ruta=="ConsultarCredencialPersonaNatural" )_credencialPersonaNatural=html;
+            if( ruta=="ConsultarPersonaNatural" )_personaNatural=html;
+            if( ruta=="ConsultarSucursal" )_sucursal=html;
+            if( ruta=="ConsultarParticipante" )_participante=html;
+            if( ruta=="ConsultarMatricula" )_matricula=html;
+            $("#datos").html(html);
+        });
+    }
+    function limpiarDuiResultado() {
+        $("#datos").empty();
+    }
+
+</script>

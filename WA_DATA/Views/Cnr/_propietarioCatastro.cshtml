@@ -1,0 +1,17 @@
+﻿@using Library.Models.DTOs.Cnr
+@model List<Propietario>
+<h3 class="mb-3 text-primary-emphasis h6">Propietario Catastro:</h3>
+@(Html.DevExtreme().DataGrid<Propietario>()
+    .ID("gridPropietarioCatastro")
+    .DataSource(Model)
+    .ShowBorders(true)
+    .ColumnAutoWidth(true)
+    .WordWrapEnabled(true)
+    .RowAlternationEnabled(true)
+    .ColumnHidingEnabled(true)
+    .SearchPanel(sp => sp.Visible(true).Width(250).Placeholder("Buscar..."))
+    .Paging(p => p.PageSize(10))
+    .Pager(p => p.ShowPageSizeSelector(true).AllowedPageSizes(new[] { 10, 20, 50 }).ShowInfo(true))
+)
+
+
