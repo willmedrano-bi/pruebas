@@ -4,6 +4,7 @@ services:
 
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql
     ports:
       - "${MSSQL_PORT}:1433"
     environment:
@@ -15,27 +16,24 @@ services:
       - mssql-data:/var/opt/mssql
       - ./backups:${MSSQL_BACKUP_DIR}
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P '${DB_PASSWORD}' -Q 'SELECT 1'"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"${DB_PASSWORD}\" -C -Q \"SELECT 1\""]
       interval: 15s
       timeout: 10s
       retries: 10
-
+      
   mssqlscripts:
     image: mcr.microsoft.com/mssql-tools
+    container_name: mssqlscripts
     depends_on:
       mssql:
         condition: service_healthy
     command: >
-      /bin/bash -c "
-        /opt/mssql-tools/bin/sqlcmd
-        -S mssql -U sa -P '${DB_PASSWORD}'
-        -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_DATABASE}')
-             CREATE DATABASE [${DB_DATABASE}];\"
-      "
+      /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P \"${DB_PASSWORD}\" -C -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${DB_DATABASE}') CREATE DATABASE [${DB_DATABASE}];\""
     restart: "no"
-
+  
   keycloak:
     image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
     depends_on:
       mssqlscripts:
         condition: service_completed_successfully
@@ -43,7 +41,7 @@ services:
       - "${KC_PORT}:8080"
     environment:
       - KC_DB=${KC_DB}
-      - KC_DB_URL=${KC_DB_URL};databaseName=${DB_DATABASE};encrypt=${ENCRYPTION_ENABLED};trustServerCertificate=${TRUST_SERVER_CERTIFICATE}
+      - KC_DB_URL=${KC_DB_URL}
       - KC_DB_USERNAME=${KC_DB_USERNAME}
       - KC_DB_PASSWORD=${KC_DB_PASSWORD}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
@@ -55,22 +53,16 @@ volumes:
 
 
 
-  # ─── SQL Server ───────────────────────────────────────────────────
+
 MSSQL_PORT=1433
 DB_PASSWORD=UnaContraseña_Segura123!
 MSSQL_MEMORY_LIMIT_MB=2048
 MSSQL_BACKUP_DIR=/backups
 DB_DATABASE=Keycloak
-
-# ─── Keycloak DB connection ───────────────────────────────────────
 KC_DB=mssql
-KC_DB_URL=jdbc:sqlserver://mssql
+KC_DB_URL=jdbc:sqlserver://mssql:1433;databaseName=Keycloak;encrypt=false;trustServerCertificate=true
 KC_DB_USERNAME=sa
 KC_DB_PASSWORD=UnaContraseña_Segura123!
-ENCRYPTION_ENABLED=false
-TRUST_SERVER_CERTIFICATE=true
-
-# ─── Keycloak admin ───────────────────────────────────────────────
 KC_PORT=8080
 KC_BOOTSTRAP_ADMIN_USERNAME=admin
 KC_BOOTSTRAP_ADMIN_PASSWORD=AdminSeguro456!
