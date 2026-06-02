@@ -66,3 +66,170 @@ KC_DB_PASSWORD=UnaContraseña_Segura123!
 KC_PORT=8080
 KC_BOOTSTRAP_ADMIN_USERNAME=admin
 KC_BOOTSTRAP_ADMIN_PASSWORD=AdminSeguro456!
+
+
+using LocalUserWeb.Components;
+using LocalUserWeb.Models;
+using LocalUserWeb.Services;
+using Keycloak.AuthServices.Authentication;
+using Keycloak.AuthServices.Authorization;
+using Keycloak.AuthServices.Common.Claims;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using MudBlazor.Services;
+using System.Security.Claims;
+using System.Text.Json;
+using LocalUserWeb.Helpers;
+using LocalUserWeb.Middleware;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+
+
+var builder = WebApplication.CreateBuilder(args);
+
+//actualizar en producción
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.CheckConsentNeeded = context => false;
+    options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+});
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    options.Cookie.SameSite = SameSiteMode.Unspecified;
+
+});
+builder
+    .Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddKeycloakWebApp(
+        builder.Configuration.GetSection(KeycloakAuthenticationOptions.Section),
+        configureOpenIdConnectOptions: options =>
+        {
+            // we need this for front-channel sign-out
+            options.SaveTokens = true;
+            options.ResponseType = OpenIdConnectResponseType.Code;
+            options.CorrelationCookie.SameSite = SameSiteMode.Unspecified;
+            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.None;
+
+            options.NonceCookie.SameSite = SameSiteMode.Unspecified;
+            options.NonceCookie.SecurePolicy = CookieSecurePolicy.None;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                RoleClaimType = ClaimTypes.Role
+            };
+            options.ResponseType = OpenIdConnectResponseType.Code;
+            options.Events = new OpenIdConnectEvents
+            {
+                OnSignedOutCallbackRedirect = context =>
+                {
+                    context.Response.Redirect("/");
+                    context.HandleResponse();
+
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = context =>
+                {
+                    var identity = (ClaimsIdentity)context.Principal.Identity;
+
+                    var accessToken = context.TokenEndpointResponse.AccessToken;
+                    var handler = new JwtSecurityTokenHandler();
+                    var jwt = handler.ReadJwtToken(accessToken);
+
+                    // Serializa payload a JSON string
+                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(jwt.Payload);
+                    using var doc = JsonDocument.Parse(payloadJson);
+
+                    var root = doc.RootElement;
+
+                    if (root.TryGetProperty("resource_access", out var resourceAccess) &&
+                        resourceAccess.TryGetProperty("identidad_client", out var identidadClient) &&
+                        identidadClient.TryGetProperty("roles", out var rolesElement) &&
+                        rolesElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var role in rolesElement.EnumerateArray())
+                        {
+                            var roleValue = role.GetString();
+                            if (!string.IsNullOrEmpty(roleValue))
+                            {
+                                identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
+                            }
+                        }
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        }
+    );
+builder
+    .Services.AddKeycloakAuthorization(builder.Configuration)
+    .AddAuthorizationBuilder()
+    .AddPolicy("admin", policy => policy.RequireResourceRolesForClient("identidad_client", ["user-admin-role"]));
+//.AddPolicy("cnr", policy => policy.RequireResourceRolesForClient("identidad_client", ["cnr-rol"]));
+
+builder.Services.AddScoped<TokenRefreshHelper>();
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
+//builder.Services.AddHttpClient<UserApiService>(client =>
+//{
+//    client.BaseAddress = new Uri(
+//        builder.Configuration["ApiSettings:BaseUrl"] ?? "http://192.168.24.146:8085"    
+//    );
+//});
+
+/*builder.Services.AddHttpClient("servidor146",client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ApiSettings:BaseUrl"] ?? "http://192.168.24.146:8085"     
+    );
+});
+builder.Services.AddHttpClient("local", client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5195"      
+    );
+});*/
+var serverSettings = builder.Configuration
+    .GetSection("Servers")
+    .Get<List<ServerApi>>()
+    .Select(s => s)
+    .ToList();
+var settings = new ServerSettings { ServerApi = serverSettings };
+builder.Services.AddSingleton(settings);
+foreach (var server in serverSettings)
+{
+    builder.Services.AddHttpClient(server.Id, client =>
+    {
+        client.BaseAddress = new Uri(server.Url);
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+}
+
+builder.Services.AddScoped<ServerContextService>();
+builder.Services.AddScoped<UserApiService>();
+builder.Services.AddScoped<ReplicationService>();
+
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
+app.UseAuthentication();
+app.UseMiddleware<TokenRefreshMiddleware>();
+app.UseAuthorization();
+
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.Run();
+
