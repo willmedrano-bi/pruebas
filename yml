@@ -66,26 +66,120 @@ KC_DB_PASSWORD=UnaContraseña_Segura123!
 KC_PORT=8080
 KC_BOOTSTRAP_ADMIN_USERNAME=admin
 KC_BOOTSTRAP_ADMIN_PASSWORD=AdminSeguro456!
-app.MapGet("/api/token", async (HttpContext context) =>
+
+
+using LocalUserWeb.Helpers;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Globalization;
+
+namespace LocalUserWeb.Services
 {
-    var accessToken = await context.GetTokenAsync(
-        CookieAuthenticationDefaults.AuthenticationScheme,
-        "access_token");
-
-    var refreshToken = await context.GetTokenAsync(
-        CookieAuthenticationDefaults.AuthenticationScheme,
-        "refresh_token");
-
-    var expiresAt = await context.GetTokenAsync(
-        CookieAuthenticationDefaults.AuthenticationScheme,
-        "expires_at");
-
-    return Results.Ok(new
+    public class AccessTokenService
     {
-        hasAccessToken = !string.IsNullOrWhiteSpace(accessToken),
-        hasRefreshToken = !string.IsNullOrWhiteSpace(refreshToken),
-        expiresAt
-    });
-}).RequireAuthorization();
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly TokenRefreshHelper _tokenRefreshHelper;
+        private readonly TokenSessionService _tokenSession;
 
+        public AccessTokenService(
+            IHttpContextAccessor httpContextAccessor,
+            TokenRefreshHelper tokenRefreshHelper,
+            TokenSessionService tokenSession)
+        {
+            _httpContextAccessor = httpContextAccessor;
+            _tokenRefreshHelper = tokenRefreshHelper;
+            _tokenSession = tokenSession;
+        }
 
+        public async Task<string?> ObtenerAccessTokenValidoAsync()
+        {
+            // AGREGADO:
+            // Primero carga los tokens iniciales desde la cookie una sola vez.
+            await CargarTokensDesdeCookieSiHaceFalta();
+
+            // ANTES:
+            // Se leía siempre access_token desde HttpContext.
+            // CAMBIADO:
+            // Ahora se usa TokenSessionService como almacenamiento vivo del circuito Blazor.
+            if (string.IsNullOrWhiteSpace(_tokenSession.AccessToken))
+                return null;
+
+            // AGREGADO:
+            // Si el token sigue vigente, se reutiliza.
+            if (_tokenSession.ExpiresAtUtc.HasValue &&
+                _tokenSession.ExpiresAtUtc.Value > DateTimeOffset.UtcNow.AddMinutes(2))
+            {
+                return _tokenSession.AccessToken;
+            }
+
+            // AGREGADO:
+            // Si está por vencer o vencido, se intenta renovar con refresh_token.
+            if (string.IsNullOrWhiteSpace(_tokenSession.RefreshToken))
+                return null;
+
+            var newTokens = await _tokenRefreshHelper
+                .PedirNuevoAccessTokenAsync(_tokenSession.RefreshToken);
+
+            if (newTokens == null || string.IsNullOrWhiteSpace(newTokens.AccessToken))
+                return null;
+
+            // AGREGADO:
+            // No se reescribe la cookie aquí.
+            // En Blazor Server/IIS puede fallar por headers ya enviados.
+            // Se actualiza solamente el estado scoped del circuito.
+            _tokenSession.AccessToken = newTokens.AccessToken;
+
+            if (!string.IsNullOrWhiteSpace(newTokens.RefreshToken))
+                _tokenSession.RefreshToken = newTokens.RefreshToken;
+
+            _tokenSession.ExpiresAtUtc =
+                DateTimeOffset.UtcNow.AddSeconds(newTokens.ExpiresIn);
+
+            return _tokenSession.AccessToken;
+        }
+
+        private async Task CargarTokensDesdeCookieSiHaceFalta()
+        {
+            if (!string.IsNullOrWhiteSpace(_tokenSession.AccessToken))
+                return;
+
+            var context = _httpContextAccessor.HttpContext;
+
+            if (context == null)
+                return;
+
+            // ANTES:
+            // context.GetTokenAsync("access_token")
+            //
+            // CAMBIADO:
+            // Se especifica CookieAuthenticationDefaults.AuthenticationScheme
+            // para leer desde la cookie de autenticación.
+            var accessToken = await context.GetTokenAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                "access_token");
+
+            var refreshToken = await context.GetTokenAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                "refresh_token");
+
+            var expiresAt = await context.GetTokenAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                "expires_at");
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+                return;
+
+            _tokenSession.AccessToken = accessToken;
+            _tokenSession.RefreshToken = refreshToken;
+
+            if (DateTimeOffset.TryParse(
+                    expiresAt,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal,
+                    out var expiration))
+            {
+                _tokenSession.ExpiresAtUtc = expiration.ToUniversalTime();
+            }
+        }
+    }
+}
