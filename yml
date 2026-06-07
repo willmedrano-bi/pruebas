@@ -66,62 +66,26 @@ KC_DB_PASSWORD=UnaContraseña_Segura123!
 KC_PORT=8080
 KC_BOOTSTRAP_ADMIN_USERNAME=admin
 KC_BOOTSTRAP_ADMIN_PASSWORD=AdminSeguro456!
-
+app.MapGet("/api/token", async (HttpContext context) =>
 {
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "Keycloak":
-  {
-    "realm": "test",
-    "auth-server-url": "http://192.168.1.125:8080/",
-    "ssl-required": "none",
-    "resource": "Users-client",
-    "public-client": true,
-    "verify-token-audience": true,
-    "use-resource-role-mappings": true,
-    "confidential-port": 0
-  },
-  "AllowedHosts": "*",
-  "Servers": [
-    {
-      "Id": "1",
-      "Nombre": "Localhost",
-      "Ip": "172.0.0.1",
-      "Url": "http://localhost:5195",
-      "related": 0
+    var accessToken = await context.GetTokenAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        "access_token");
 
-    },
+    var refreshToken = await context.GetTokenAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        "refresh_token");
+
+    var expiresAt = await context.GetTokenAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        "expires_at");
+
+    return Results.Ok(new
     {
-      "Id": "2",
-      "Nombre": "Normativo",
-      "Ip": "192.168.24.146",
-      "Url": "http://192.168.24.146:8085",
-      "related": 1
-    },
-    {
-      "Id": "3",
-      "Nombre": "Prestamos",
-      "Ip": "192.168.24.123",
-      "Url": "http://192.168.24.123:8085",
-      "related": 1
-    }
-  ],
-  "ServersProd": [
-    {
-      "Id": "1",
-      "Nombre": "Normativo",
-      "Ip": "192.168.24.146",
-      "Url": "http://192.168.24.146:8085"
-    },
-    {
-      "Id": "2",
-      "Nombre": "Prestamos",
-      "Ip": "192.168.24.123",
-      "Url": "http://192.168.24.123:8085"
-    }
-  ]
-}
+        hasAccessToken = !string.IsNullOrWhiteSpace(accessToken),
+        hasRefreshToken = !string.IsNullOrWhiteSpace(refreshToken),
+        expiresAt
+    });
+}).RequireAuthorization();
+
+
