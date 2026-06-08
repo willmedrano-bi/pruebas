@@ -434,3 +434,15 @@ namespace LocalUserWeb.Services
     "confidential-port": 0,
     "validate-certificates": false // nuevo
 },
+<div class="nav-item px-3">
+    <AuthorizeView>
+        <Authorized>
+            <form action="Logout" method="post">
+                <AntiforgeryToken />
+                <button type="submit" class="nav-link">
+                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Logout
+                </button>
+            </form>
+        </Authorized>
+    </AuthorizeView>
+</div>
