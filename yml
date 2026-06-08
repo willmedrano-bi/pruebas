@@ -68,9 +68,278 @@ KC_BOOTSTRAP_ADMIN_USERNAME=admin
 KC_BOOTSTRAP_ADMIN_PASSWORD=AdminSeguro456!
 
 
+using LocalUserWeb.Components;
+using LocalUserWeb.Models;
+using LocalUserWeb.Services;
 using LocalUserWeb.Helpers;
+using LocalUserWeb.Middleware;
+using Keycloak.AuthServices.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+using MudBlazor.Services;
+using System.Security.Claims;
+using System.Text.Json;
+using System.IdentityModel.Tokens.Jwt;
+
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ── Lectura de configuración desde sección Keycloak ───────────────────────────
+var kc = builder.Configuration.GetSection("Keycloak");
+
+var authUrl = kc["auth-server-url"]!.TrimEnd('/');
+var internalUrl = kc["auth-server-url-internal"];
+var realm = kc["realm"]!;
+var clientId = kc["resource"]!;
+var validateCerts = kc.GetValue<bool>("validate-certificates");
+var requireHttps = kc["ssl-required"] != "none";
+
+// Si auth-server-url-internal está vacío, se usa la misma URL pública
+// backendIdpUrl → usado por el servidor para token/JWKS (puede ser URL Docker interna)
+// clientIdpUrl  → usado por el browser para auth/logout (siempre URL pública)
+var backendIdpUrl = $"{(string.IsNullOrEmpty(internalUrl) ? authUrl : internalUrl.TrimEnd('/'))}/realms/{realm}";
+var clientIdpUrl = $"{authUrl}/realms/{realm}";
+
+// ── HttpClient para fetch de JWKS ─────────────────────────────────────────────
+HttpClient httpClient;
+if (!validateCerts)
+{
+    var handler = new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback =
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    };
+    httpClient = new HttpClient(handler);
+}
+else
+{
+    httpClient = new HttpClient();
+}
+builder.Services.AddSingleton(httpClient);
+
+// ── Cookie policy (actualizar en producción) ──────────────────────────────────
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.CheckConsentNeeded = context => false;
+    options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+});
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    options.Cookie.SameSite = SameSiteMode.Unspecified;
+});
+
+// ── Autenticación: OpenIdConnect + Cookie ─────────────────────────────────────
+builder.Services
+    .AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+    {
+        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+
+        options.Configuration = new OpenIdConnectConfiguration
+        {
+            Issuer = backendIdpUrl,
+            AuthorizationEndpoint = $"{clientIdpUrl}/protocol/openid-connect/auth",
+            TokenEndpoint = $"{backendIdpUrl}/protocol/openid-connect/token",
+            JwksUri = $"{backendIdpUrl}/protocol/openid-connect/certs",
+            JsonWebKeySet = FetchJwks($"{backendIdpUrl}/protocol/openid-connect/certs"),
+            EndSessionEndpoint = $"{clientIdpUrl}/protocol/openid-connect/logout",
+        };
+
+        foreach (var key in options.Configuration.JsonWebKeySet.GetSigningKeys())
+        {
+            options.Configuration.SigningKeys.Add(key);
+            Console.WriteLine($"Added SigningKey: {key.KeyId}");
+        }
+
+        options.ClientId = clientId;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuers = [clientIdpUrl, backendIdpUrl],
+            NameClaimType = "name",
+            // RoleClaimType apunta al mismo tipo que se agrega en OnTokenValidated,
+            // así User.IsInRole() y [Authorize(Roles = "...")] funcionan correctamente
+            RoleClaimType = ClaimTypes.Role,
+        };
+
+        options.RequireHttpsMetadata = requireHttps;
+        options.ResponseType = OpenIdConnectResponseType.Code;
+        options.GetClaimsFromUserInfoEndpoint = true;
+        options.SaveTokens = true;
+        options.MapInboundClaims = true;
+
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
+        options.CorrelationCookie.SameSite = SameSiteMode.Unspecified;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.None;
+        options.NonceCookie.SameSite = SameSiteMode.Unspecified;
+        options.NonceCookie.SecurePolicy = CookieSecurePolicy.None;
+
+        options.Events = new OpenIdConnectEvents
+        {
+            OnSignedOutCallbackRedirect = context =>
+            {
+                context.Response.Redirect("/");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            },
+
+            OnTokenValidated = context =>
+            {
+                if (context.Principal?.Identity is not ClaimsIdentity identity)
+                    return Task.CompletedTask;
+
+                var accessToken = context.TokenEndpointResponse?.AccessToken;
+                if (string.IsNullOrEmpty(accessToken))
+                    return Task.CompletedTask;
+
+                // Leer el JWT y extraer resource_access.<clientId>.roles
+                // Keycloak no los incluye en el id_token, solo en el access_token
+                var handler = new JwtSecurityTokenHandler();
+                var jwt = handler.ReadJwtToken(accessToken);
+                var payloadJson = JsonSerializer.Serialize(jwt.Payload);
+                using var doc = JsonDocument.Parse(payloadJson);
+                var root = doc.RootElement;
+
+                // Estructura en el JWT:
+                // "resource_access": {
+                //   "Users-client": {          ← clientId (Keycloak:resource)
+                //     "roles": ["user-admin-role", "produccion-rol"]
+                //   }
+                // }
+                if (root.TryGetProperty("resource_access", out var resourceAccess) &&
+                    resourceAccess.TryGetProperty(clientId, out var clientAccess) &&
+                    clientAccess.TryGetProperty("roles", out var rolesElement) &&
+                    rolesElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var role in rolesElement.EnumerateArray())
+                    {
+                        var roleValue = role.GetString();
+                        if (!string.IsNullOrEmpty(roleValue))
+                        {
+                            // Se agrega como ClaimTypes.Role para que coincida con
+                            // RoleClaimType definido arriba en TokenValidationParameters
+                            identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
+                        }
+                    }
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+    })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+
+// ── Autorización ──────────────────────────────────────────────────────────────
+// RequireResourceRolesForClient verifica que el claim ClaimTypes.Role
+// contenga el rol especificado para el clientId dado
+builder.Services
+    .AddKeycloakAuthorization(builder.Configuration)
+    .AddAuthorizationBuilder()
+    .AddPolicy("admin", policy => policy.RequireResourceRolesForClient(clientId, ["user-admin-role"]))
+    .AddPolicy("replication", policy => policy.RequireResourceRolesForClient(clientId, ["produccion-rol"]));
+
+// ── Razor / MudBlazor ─────────────────────────────────────────────────────────
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+builder.Services.AddMudServices();
+
+// ── HttpClients de servidores ─────────────────────────────────────────────────
+builder.Services.AddHttpClient("keycloak_refresh");
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<TokenRefreshHelper>();
+
+var serverSettings = builder.Configuration
+    .GetSection("Servers")
+    .Get<List<ServerApi>>()!
+    .ToList();
+var settings = new ServerSettings { ServerApi = serverSettings };
+builder.Services.AddSingleton(settings);
+
+foreach (var server in serverSettings)
+{
+    builder.Services.AddHttpClient(server.Id, client =>
+    {
+        client.BaseAddress = new Uri(server.Url);
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+}
+
+var serversProd = builder.Configuration
+    .GetSection("ServersProd")
+    .Get<List<ServerApi>>() ?? new List<ServerApi>();
+
+foreach (var server in serversProd)
+{
+    builder.Services.AddHttpClient($"prod_{server.Id}", client =>
+    {
+        client.BaseAddress = new Uri(server.Url);
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+}
+
+// ── Servicios propios ─────────────────────────────────────────────────────────
+builder.Services.AddScoped<AccessTokenService>();
+builder.Services.AddScoped<ServerContextService>();
+builder.Services.AddScoped<UserApiService>();
+builder.Services.AddScoped<ReplicationService>();
+builder.Services.AddCascadingAuthenticationState();
+
+// ─────────────────────────────────────────────────────────────────────────────
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
+app.UseCookiePolicy();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthentication();
+app.UseMiddleware<TokenRefreshMiddleware>();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.MapGet("/api/token", async (HttpContext ctx) =>
+{
+    var token = await ctx.GetTokenAsync("access_token");
+    return Results.Ok(new { token });
+}).RequireAuthorization();
+
+app.MapPost("/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+});
+
+app.Run();
+
+// ── Helper local ──────────────────────────────────────────────────────────────
+JsonWebKeySet FetchJwks(string url)
+{
+    var result = httpClient.GetAsync(url).Result;
+    if (!result.IsSuccessStatusCode || result.Content is null)
+        throw new Exception($"Getting JWKS from {url} failed. Status code {result.StatusCode}");
+
+    var jwks = result.Content.ReadAsStringAsync().Result;
+    return new JsonWebKeySet(jwks);
+}
+
+
+using LocalUserWeb.Helpers;
+using Microsoft.AspNetCore.Authentication;
 using System.Globalization;
 
 namespace LocalUserWeb.Services
@@ -79,107 +348,89 @@ namespace LocalUserWeb.Services
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly TokenRefreshHelper _tokenRefreshHelper;
-        private readonly TokenSessionService _tokenSession;
 
         public AccessTokenService(
             IHttpContextAccessor httpContextAccessor,
-            TokenRefreshHelper tokenRefreshHelper,
-            TokenSessionService tokenSession)
+            TokenRefreshHelper tokenRefreshHelper)
         {
             _httpContextAccessor = httpContextAccessor;
             _tokenRefreshHelper = tokenRefreshHelper;
-            _tokenSession = tokenSession;
         }
 
         public async Task<string?> ObtenerAccessTokenValidoAsync()
         {
-            // AGREGADO:
-            // Primero carga los tokens iniciales desde la cookie una sola vez.
-            await CargarTokensDesdeCookieSiHaceFalta();
-
-            // ANTES:
-            // Se leía siempre access_token desde HttpContext.
-            // CAMBIADO:
-            // Ahora se usa TokenSessionService como almacenamiento vivo del circuito Blazor.
-            if (string.IsNullOrWhiteSpace(_tokenSession.AccessToken))
+            var context = _httpContextAccessor.HttpContext;
+            if (context == null)
                 return null;
 
-            // AGREGADO:
-            // Si el token sigue vigente, se reutiliza.
-            if (_tokenSession.ExpiresAtUtc.HasValue &&
-                _tokenSession.ExpiresAtUtc.Value > DateTimeOffset.UtcNow.AddMinutes(2))
-            {
-                return _tokenSession.AccessToken;
-            }
-
-            // AGREGADO:
-            // Si está por vencer o vencido, se intenta renovar con refresh_token.
-            if (string.IsNullOrWhiteSpace(_tokenSession.RefreshToken))
+            var accessToken = await context.GetTokenAsync("access_token");
+            if (string.IsNullOrWhiteSpace(accessToken))
                 return null;
 
-            var newTokens = await _tokenRefreshHelper
-                .PedirNuevoAccessTokenAsync(_tokenSession.RefreshToken);
+            var expiresAt = await context.GetTokenAsync("expires_at");
+            var expiration = ParseExpiration(expiresAt);
 
+            // Si no se pudo parsear la expiración, devolver el token tal cual
+            if (expiration == null)
+                return accessToken;
+
+            // Todavía válido por más de 2 minutos
+            if (expiration.Value > DateTime.UtcNow.AddMinutes(2))
+                return accessToken;
+
+            // Token próximo a vencer — intentar refrescar
+            var refreshToken = await context.GetTokenAsync("refresh_token");
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return null;
+
+            var newTokens = await _tokenRefreshHelper.PedirNuevoAccessTokenAsync(refreshToken);
             if (newTokens == null || string.IsNullOrWhiteSpace(newTokens.AccessToken))
                 return null;
 
-            // AGREGADO:
-            // No se reescribe la cookie aquí.
-            // En Blazor Server/IIS puede fallar por headers ya enviados.
-            // Se actualiza solamente el estado scoped del circuito.
-            _tokenSession.AccessToken = newTokens.AccessToken;
-
-            if (!string.IsNullOrWhiteSpace(newTokens.RefreshToken))
-                _tokenSession.RefreshToken = newTokens.RefreshToken;
-
-            _tokenSession.ExpiresAtUtc =
-                DateTimeOffset.UtcNow.AddSeconds(newTokens.ExpiresIn);
-
-            return _tokenSession.AccessToken;
+            return newTokens.AccessToken;
         }
 
-        private async Task CargarTokensDesdeCookieSiHaceFalta()
+        /// <summary>
+        /// Parsea expires_at en cualquiera de los dos formatos posibles:
+        /// - DateTime string: "2024-01-15T10:30:00.0000000Z"  (AddKeycloakWebApp)
+        /// - Unix timestamp:  "1705312200"                     (AddOpenIdConnect puro)
+        /// </summary>
+        private static DateTime? ParseExpiration(string? expiresAt)
         {
-            if (!string.IsNullOrWhiteSpace(_tokenSession.AccessToken))
-                return;
+            if (string.IsNullOrWhiteSpace(expiresAt))
+                return null;
 
-            var context = _httpContextAccessor.HttpContext;
-
-            if (context == null)
-                return;
-
-            // ANTES:
-            // context.GetTokenAsync("access_token")
-            //
-            // CAMBIADO:
-            // Se especifica CookieAuthenticationDefaults.AuthenticationScheme
-            // para leer desde la cookie de autenticación.
-            var accessToken = await context.GetTokenAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                "access_token");
-
-            var refreshToken = await context.GetTokenAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                "refresh_token");
-
-            var expiresAt = await context.GetTokenAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                "expires_at");
-
-            if (string.IsNullOrWhiteSpace(accessToken))
-                return;
-
-            _tokenSession.AccessToken = accessToken;
-            _tokenSession.RefreshToken = refreshToken;
-
-            if (DateTimeOffset.TryParse(
+            // Intentar como DateTime string primero
+            if (DateTime.TryParse(
                     expiresAt,
                     CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal,
-                    out var expiration))
+                    DateTimeStyles.AdjustToUniversal,
+                    out var dtResult))
             {
-                _tokenSession.ExpiresAtUtc = expiration.ToUniversalTime();
+                return dtResult;
             }
+
+            // Intentar como Unix timestamp (segundos)
+            if (long.TryParse(expiresAt, out var unixSeconds))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+            }
+
+            return null;
         }
     }
 }
+
+
+"Keycloak": {
+    "realm": "test",
+    "auth-server-url": "http://192.168.1.125:8080/",
+    "auth-server-url-internal": "", // solo si usas Docker y la URL interna difiere
+    "ssl-required": "none",
+    "resource": "Users-client",
+    "public-client": true,
+    "verify-token-audience": true,
+    "use-resource-role-mappings": true,
+    "confidential-port": 0,
+    "validate-certificates": false // nuevo
+},
